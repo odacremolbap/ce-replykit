@@ -19,57 +19,20 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
-	"os"
 
-	"github.com/cloudevents/sdk-go/observability/opencensus/v2/client"
-	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
-
-	"go.uber.org/zap"
-	"knative.dev/pkg/tracing"
-	"knative.dev/pkg/tracing/config"
-)
-
-const (
-	// HTTP path of the health endpoint used for probing the service.
-	healthzPath = "/healthz"
-	// Environment variable contining the tracing configuration.
-	cfgTracingEnv = "K_CONFIG_TRACING"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
 func main() {
 	ctx := context.Background()
-	handler := NewStatefulHandler(ctx)
-	run(ctx, handler)
-}
 
-func run(ctx context.Context, handler *StatefulHandler) {
-	c, err := client.NewClientHTTP(
-		[]cehttp.Option{cehttp.WithMiddleware(healthzMiddleware)}, nil,
-	)
+	c, err := cloudevents.NewClientHTTP()
 	if err != nil {
-		log.Fatal("Failed to create client: ", err)
-	}
-	conf, err := config.JSONToTracingConfig(os.Getenv(cfgTracingEnv))
-	if err != nil {
-		log.Printf("Failed to read tracing config, using the no-op default: %v", err)
-	}
-	if err := tracing.SetupStaticPublishing(zap.L().Sugar(), "", conf); err != nil {
-		log.Fatalf("Failed to initialize tracing: %v", err)
+		log.Fatal("Failed to create CloudEvents client: ", err)
 	}
 
+	handler := NewRequestHandler(ctx)
 	if err := c.StartReceiver(ctx, handler.Handle); err != nil {
 		log.Fatal("Error during receiver's runtime: ", err)
 	}
-}
-
-// healthzMiddleware is a cehttp.Middleware which exposes a health endpoint.
-func healthzMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.RequestURI == healthzPath {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			next.ServeHTTP(w, req)
-		}
-	})
 }
