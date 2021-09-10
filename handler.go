@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol"
@@ -23,7 +24,10 @@ type RequestHandler struct {
 }
 
 func NewRequestHandler(ctx context.Context) *RequestHandler {
-	logger, err := zap.NewProduction()
+	config := zap.NewProductionConfig()
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339) // or time.RubyDate or "2006-01-02 15:04:05" or even freaking time.Kitchen
+
+	logger, err := config.Build()
 	if err != nil {
 		panic(err)
 	}
@@ -79,28 +83,28 @@ func (s *RequestHandler) evalCondition(ri *ReplyInstruction, event cloudevents.E
 
 		return true, nil
 
-	case "requestcount_lt":
+	case "retrycount_lt":
 		count := s.requestCount.Get(event.Context.GetID())
 		if len(kv) != 2 {
-			return false, fmt.Errorf("requestcount_lt condition needs a parameter")
+			return false, fmt.Errorf("retrycount_lt condition needs a parameter")
 		}
 		v, err := strconv.Atoi(strings.TrimSpace(kv[1]))
 		if err != nil {
-			return false, fmt.Errorf("requestcount_lt condition needs an integer parameter")
+			return false, fmt.Errorf("retrycount_lt condition needs an integer parameter")
 		}
 
 		if count < v {
 			return true, nil
 		}
 
-	case "requestcount_gt":
+	case "retrycount_gt":
 		count := s.requestCount.Get(event.Context.GetID())
 		if len(kv) != 2 {
-			return false, fmt.Errorf("requestcount_gt condition needs a parameter")
+			return false, fmt.Errorf("retrycount_gt condition needs a parameter")
 		}
 		v, err := strconv.Atoi(strings.TrimSpace(kv[1]))
 		if err != nil {
-			return false, fmt.Errorf("requestcount_gt condition needs an integer parameter")
+			return false, fmt.Errorf("retrycount_gt condition needs an integer parameter")
 		}
 
 		if count > v {
@@ -171,6 +175,7 @@ func (s *RequestHandler) executeAction(ri *ReplyInstruction, event cloudevents.E
 			return nil, protocol.ResultNACK
 		}
 
+		s.logger.Debug("reset", zap.String("event-id", event.Context.GetID()), zap.String("result", "ack"))
 		s.requestCount.Reset()
 		return nil, protocol.ResultACK
 	}
