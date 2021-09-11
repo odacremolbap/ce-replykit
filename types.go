@@ -1,12 +1,11 @@
 package main
 
-type Payload struct {
-}
+import "encoding/json"
 
 type ReplyInstruction struct {
-	Condition string
-	Action    string
-	Payload   Payload
+	Condition string          `json:"condition,omitempty"`
+	Action    string          `json:"action,omitempty"`
+	Reply     json.RawMessage `json:"reply,omitempty"`
 }
 
 type ReplyInstructions []ReplyInstruction

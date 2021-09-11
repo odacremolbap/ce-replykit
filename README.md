@@ -9,7 +9,17 @@ Utility that receives CloudEvents containing instructions on how to reply.
 CloudEvents Reply Kit expect accepts Events containing a JSON array of instructions. Each instruction might contain:
 - Condition: determines if the instruction needs to be executed.
 - Action: defines the action to execute.
-- Payload: JSON element that will be used by actions when a reply payload is needed.
+- Reply: JSON element that will be used by actions when a reply payload is needed.
+
+Instruction example:
+
+```json
+{
+       "condition":"always",
+       "action":"ack+event",
+       "reply": {"hello":"world"}
+}
+```
 
 Condition element is optional and when non existing defaults to`always`. CloudEvents toolkit will iterate instructions in order until one condition is true, in which case it will execute its action and return. Possible values are:
 
@@ -21,8 +31,8 @@ Action element possible values are:
 - `delay-ack: <seconds>`, waits a number of seconds and then returns ACK.
 - `ack`, returns ACK.
 - `nack`, returns NACK.
-- `ack+payload`, TBD.
-- `nack+payload`, TBD.
+- `ack+event`, returns ACK along with a reply payload.
+- `nack+event`, returns NACK along with a reply payload.
 - `reset`, deletes cached request retry count at server.
 
 # Examples

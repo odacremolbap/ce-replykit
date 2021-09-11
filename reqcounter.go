@@ -60,11 +60,11 @@ func (c *RequestCountPerID) Increase(id string) int {
 	if !ok {
 		el := c.rl.PushFront(id)
 		c.count[id] = &value{
-			n:       1,
+			n:       0,
 			expires: expires,
 			le:      el,
 		}
-		return 1
+		return 0
 	}
 
 	v.n += 1

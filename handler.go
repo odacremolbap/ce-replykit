@@ -23,7 +23,7 @@ type RequestHandler struct {
 	logger       *zap.Logger
 }
 
-func NewRequestHandler(ctx context.Context) *RequestHandler {
+func NewRequestHandler(ctx context.Context, storageTTL time.Duration) *RequestHandler {
 	config := zap.NewProductionConfig()
 	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339) // or time.RubyDate or "2006-01-02 15:04:05" or even freaking time.Kitchen
 
@@ -33,7 +33,7 @@ func NewRequestHandler(ctx context.Context) *RequestHandler {
 	}
 
 	return &RequestHandler{
-		requestCount: NewRequestCountPerID(ctx, 30*time.Second, 30*time.Second),
+		requestCount: NewRequestCountPerID(ctx, storageTTL, storageTTL*3),
 		logger:       logger,
 	}
 }
@@ -67,7 +67,7 @@ func (s *RequestHandler) Handle(ctx context.Context, event cloudevents.Event) (*
 		return s.executeAction(&ri, event)
 	}
 
-	s.logger.Info("fallback", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"))
+	s.logger.Info("fallback", zap.String("event-id", event.Context.GetID()), zap.String("result", "ack"))
 	return nil, protocol.ResultACK
 }
 
@@ -157,15 +157,39 @@ func (s *RequestHandler) executeAction(ri *ReplyInstruction, event cloudevents.E
 		s.logger.Info("nack", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"))
 		return nil, protocol.ResultNACK
 
-	case "ack+payload":
-		s.logger.Info("ack+payload", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
-			zap.Error(errors.New("not implemented")))
-		return nil, protocol.ResultNACK
+	case "ack+event":
+		if len(kv) != 1 {
+			s.logger.Info("ack+event", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
+				zap.Error(errors.New("error evaluating action ack+event: unexpected parameter")))
+			return nil, protocol.ResultNACK
+		}
 
-	case "nack+payload":
-		s.logger.Info("nack+payload", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
-			zap.Error(errors.New("not implemented")))
-		return nil, protocol.ResultNACK
+		out, err := createReplyEvent(ri, event)
+		if err != nil {
+			s.logger.Info("ack+event", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
+				zap.Error(err))
+			return nil, protocol.ResultNACK
+		}
+
+		s.logger.Info("ack+event", zap.String("event-id", event.Context.GetID()), zap.String("result", "ack"))
+		return out, protocol.ResultACK
+
+	case "nack+event":
+		if len(kv) != 1 {
+			s.logger.Info("nack+event", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
+				zap.Error(errors.New("error evaluating action nack+event: unexpected parameter")))
+			return nil, protocol.ResultNACK
+		}
+
+		out, err := createReplyEvent(ri, event)
+		if err != nil {
+			s.logger.Info("nack+event", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
+				zap.Error(err))
+			return nil, protocol.ResultNACK
+		}
+
+		s.logger.Info("nack+event", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"))
+		return out, protocol.ResultNACK
 
 	case "reset":
 		// Reset will delete all request counts at the memory storage.
@@ -183,4 +207,32 @@ func (s *RequestHandler) executeAction(ri *ReplyInstruction, event cloudevents.E
 	s.logger.Info("unknown", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
 		zap.Error(fmt.Errorf("error evaluating action: unknown action: %s", kv[0])))
 	return nil, protocol.ResultNACK
+}
+
+func createReplyEvent(ri *ReplyInstruction, in cloudevents.Event) (*cloudevents.Event, error) {
+	if ri.Reply == nil {
+		return nil, errors.New("reply payload is empty at instruction")
+	}
+
+	out := cloudevents.NewEvent()
+
+	id := in.Context.GetID() + ".reply"
+	typ := in.Context.GetType() + ".reply"
+	src := in.Context.GetSource() + ".reply"
+
+	out.SetID(id)
+	out.SetType(typ)
+	out.SetSource(src)
+
+	reply, err := ri.Reply.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse reply: %v", err)
+	}
+
+	err = out.SetData(cloudevents.ApplicationJSON, reply)
+	if err != nil {
+		return nil, fmt.Errorf("cannot set reply data: %v", err)
+	}
+
+	return &out, nil
 }
