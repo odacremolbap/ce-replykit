@@ -19,8 +19,15 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"strconv"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+)
+
+const (
+	storageTtlEnv = "CE_REPLY_KIT_STORAGE_TTL_SECONDS"
 )
 
 func main() {
@@ -31,7 +38,17 @@ func main() {
 		log.Fatal("Failed to create CloudEvents client: ", err)
 	}
 
-	handler := NewRequestHandler(ctx)
+	storageTTL := 300 * time.Second
+	st := os.Getenv(storageTtlEnv)
+	if st != "" {
+		i, err := strconv.Atoi(st)
+		if err != nil {
+			log.Fatalf("Storage TTL provided via %q is not a number: %v", storageTtlEnv, err)
+		}
+		storageTTL = time.Duration(i) * time.Second
+	}
+
+	handler := NewRequestHandler(ctx, storageTTL)
 	if err := c.StartReceiver(ctx, handler.Handle); err != nil {
 		log.Fatal("Error during receiver's runtime: ", err)
 	}
