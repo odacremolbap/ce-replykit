@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	storageTtlEnv = "CE_REPLY_KIT_STORAGE_TTL_SECONDS"
+	storageTTLEnv = "CE_REPLY_KIT_STORAGE_TTL_SECONDS"
 )
 
 func main() {
@@ -39,11 +39,11 @@ func main() {
 	}
 
 	storageTTL := 300 * time.Second
-	st := os.Getenv(storageTtlEnv)
+	st := os.Getenv(storageTTLEnv)
 	if st != "" {
 		i, err := strconv.Atoi(st)
 		if err != nil {
-			log.Fatalf("Storage TTL provided via %q is not a number: %v", storageTtlEnv, err)
+			log.Fatalf("Storage TTL provided via %q is not a number: %v", storageTTLEnv, err)
 		}
 		storageTTL = time.Duration(i) * time.Second
 	}

@@ -4,6 +4,8 @@ WIP CloudEvents Reply Kit.
 
 Utility that receives CloudEvents containing instructions on how to reply.
 
+It contains an in-memory request stora that aggregates the number of requests per event ID to enable conditional instructions based on retries. Counters in that storage are removed after a 300 seconds, which can be customized via `CE_REPLY_KIT_STORAGE_TTL_SECONDS` environment variable.
+
 ## Usage
 
 CloudEvents Reply Kit expect accepts Events containing a JSON array of instructions. Each instruction might contain:
@@ -62,14 +64,27 @@ curl -v "http://localhost:8080" \
        -H "Ce-Source: curl.shell" \
        -H "Content-Type: application/json" \
        -d '[
-              {"condition":"retrycount_lt: 3","action":"nack"},
+              {"condition":"retrycount_lt: 2","action":"nack"},
               {"condition":"always","action":"ack"}
        ]'
 
 ```
 
+Return ACK plus a reply. If an instance of `ce-replykit` handles the response it will also return an ACK.
+
+```sh
+curl -v "http://localhost:8080" \
+       -X POST \
+       -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f71" \
+       -H "Ce-Specversion: 1.0" \
+       -H "Ce-Type: replykit.instructions" \
+       -H "Ce-Source: curl.shell" \
+       -H "Content-Type: application/json" \
+       -d '[{"action":"ack+event","reply":[{"action":"ack"}]}]'
+```
+
 ## Deploy
 
 ```sh
-ko apply -f .local/conformance/01-prepare
+ko apply -f deploy.yaml
 ```
