@@ -23,6 +23,7 @@ type RequestHandler struct {
 	logger       *zap.Logger
 }
 
+// NewRequestHandler creates a new request handler with a storage for repeated request IDs.
 func NewRequestHandler(ctx context.Context, storageTTL time.Duration) *RequestHandler {
 	config := zap.NewProductionConfig()
 	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339) // or time.RubyDate or "2006-01-02 15:04:05" or even freaking time.Kitchen
@@ -38,6 +39,7 @@ func NewRequestHandler(ctx context.Context, storageTTL time.Duration) *RequestHa
 	}
 }
 
+// Handle CloudEvents requests and produce replies according to its payload.
 func (s *RequestHandler) Handle(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, protocol.Result) {
 	ris := &ReplyInstructions{}
 	if err := event.DataAs(ris); err != nil {
@@ -111,8 +113,12 @@ func (s *RequestHandler) evalCondition(ri *ReplyInstruction, event cloudevents.E
 			return true, nil
 		}
 
+	default:
+		return false, fmt.Errorf("unknown condition %q", kv[0])
 	}
+
 	return false, nil
+
 }
 
 func (s *RequestHandler) executeAction(ri *ReplyInstruction, event cloudevents.Event) (*cloudevents.Event, protocol.Result) {

@@ -13,6 +13,7 @@ type value struct {
 	le      *list.Element
 }
 
+// RequestCountPerID is an inmemory aggregate count for IDs.
 type RequestCountPerID struct {
 	count map[string]*value
 	rl    *list.List
@@ -21,6 +22,8 @@ type RequestCountPerID struct {
 	m sync.RWMutex
 }
 
+// NewRequestCountPerID creates a new inmemory ID storage
+// and starts a garbage collector for stale elements.
 func NewRequestCountPerID(ctx context.Context, ttl, gc time.Duration) *RequestCountPerID {
 	rc := &RequestCountPerID{
 		count: make(map[string]*value),
@@ -67,7 +70,7 @@ func (c *RequestCountPerID) Increase(id string) int {
 		return 0
 	}
 
-	v.n += 1
+	v.n++
 	v.expires = expires
 	c.rl.MoveToFront(v.le)
 
