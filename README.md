@@ -89,7 +89,7 @@ curl -v "http://localhost:8080" \
 Return NACK the first 2 times the request is sent, return ACK after third retry. To test this case you need to issue the `curl` command 3 times using the same `Ce-Id` header.
 
 
-```sh
+```console
 curl -v "http://localhost:8080" \
        -X POST \
        -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f71" \
@@ -106,7 +106,7 @@ curl -v "http://localhost:8080" \
 
 Return ACK plus a reply. In this case the reply's payload contains also an instruction which could be consumed by a different instance of the `ce-replykit` to return an ACK.
 
-```sh
+```console
 curl -v "http://localhost:8080" \
        -X POST \
        -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f71" \
