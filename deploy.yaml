@@ -12,5 +12,5 @@ spec:
       - image: ko://github.com/odacremolbap/ce-replykit
         env:
         - name: CE_REPLY_KIT_STORAGE_TTL_SECONDS
-          value: 300
+          value: "300"
 

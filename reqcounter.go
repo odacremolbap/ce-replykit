@@ -53,11 +53,9 @@ func (c *RequestCountPerID) Increase(id string) int {
 	defer c.m.Unlock()
 
 	v, ok := c.count[id]
-	if ok {
-		if v.expires.Before(time.Now()) {
-			// reset value for stale keys.
-			ok = false
-		}
+	if ok && v.expires.Before(time.Now()) {
+		// reset value for stale keys.
+		ok = false
 	}
 
 	if !ok {

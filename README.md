@@ -1,14 +1,41 @@
 # ce-replykit
 
-WIP CloudEvents Reply Kit.
-
 Utility that receives CloudEvents containing instructions on how to reply.
 
-It contains an in-memory request stora that aggregates the number of requests per event ID to enable conditional instructions based on retries. Counters in that storage are removed after a 300 seconds, which can be customized via `CE_REPLY_KIT_STORAGE_TTL_SECONDS` environment variable.
+The `ce-replykit` helps testing scenarios where replies are involved in different ways:
+
+- ACK.
+- NACK.
+- Timeouts/Delays.
+- Retries (based on CloudEvent ID).
+- A combination of all of the above.
+
+## Deploy
+
+`ce-replykit` should be deployed using [ko](https://github.com/google/ko).
+
+```console
+ko apply -f deploy.yaml
+```
+
+Building the binary is `go` straightforward.
+
+```console
+mkdir -p output && go build -o output/ce-replykit
+```
+
+## Configuration
+
+ `ce-replykit` contains an in-memory request store that aggregates the number of requests received per event ID, which enables the creation of conditional instructions based on retries.
+
+ This in-memory store will consider stale and remove any request after a  configurable TTL. You can find examples of the retry usage cases [below](#examples).
+
+ The TTL for received request stats is set by default to 300 and can be customized via the `CE_REPLY_KIT_STORAGE_TTL_SECONDS` environment variable at the deployment manifest.
 
 ## Usage
 
 CloudEvents Reply Kit expect accepts Events containing a JSON array of instructions. Each instruction might contain:
+
 - Condition: determines if the instruction needs to be executed.
 - Action: defines the action to execute.
 - Reply: JSON element that will be used by actions when a reply payload is needed.
@@ -37,11 +64,17 @@ Action element possible values are:
 - `nack+event`, returns NACK along with a reply payload.
 - `reset`, deletes cached request retry count at server.
 
-# Examples
+## Examples
+
+To try this examples run a local instance of the `ce-replykit`:
+
+```console
+go run .
+```
 
 Return ACK
 
-```sh
+```console
 curl -v "http://localhost:8080" \
        -X POST \
        -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f70" \
@@ -53,7 +86,8 @@ curl -v "http://localhost:8080" \
 
 ```
 
-Return NACK the first 2 times the request is sent, return ACK after third retry.
+Return NACK the first 2 times the request is sent, return ACK after third retry. To test this case you need to issue the `curl` command 3 times using the same `Ce-Id` header.
+
 
 ```sh
 curl -v "http://localhost:8080" \
@@ -70,7 +104,7 @@ curl -v "http://localhost:8080" \
 
 ```
 
-Return ACK plus a reply. If an instance of `ce-replykit` handles the response it will also return an ACK.
+Return ACK plus a reply. In this case the reply's payload contains also an instruction which could be consumed by a different instance of the `ce-replykit` to return an ACK.
 
 ```sh
 curl -v "http://localhost:8080" \
@@ -83,8 +117,3 @@ curl -v "http://localhost:8080" \
        -d '[{"action":"ack+event","reply":[{"action":"ack"}]}]'
 ```
 
-## Deploy
-
-```sh
-ko apply -f deploy.yaml
-```
