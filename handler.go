@@ -13,7 +13,6 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol"
-	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 )
 
 // RequestHandler dispatches requests.
@@ -163,23 +162,6 @@ func (s *RequestHandler) executeAction(ri *ReplyInstruction, event cloudevents.E
 
 		s.logger.Info("nack", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"))
 		return nil, protocol.ResultNACK
-
-	case "custom-result":
-		if len(kv) != 1 {
-			s.logger.Info("custom-result", zap.String("event-id", event.Context.GetID()), zap.String("result", "nack"),
-				zap.Error(errors.New("error evaluating action nack: unexpected parameter")))
-			return nil, protocol.ResultNACK
-		}
-
-		res := cehttp.NewResult(429, "please stop it")
-		resmsg := ""
-		if protocol.IsACK(res) {
-			resmsg = "ack"
-		} else {
-			resmsg = "nack"
-		}
-		s.logger.Info("custom-result", zap.String("event-id", event.Context.GetID()), zap.String("result", resmsg))
-		return nil, res
 
 	case "ack+event":
 		if len(kv) != 1 {
