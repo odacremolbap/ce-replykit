@@ -24,6 +24,7 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 )
 
 const (
@@ -33,7 +34,7 @@ const (
 func main() {
 	ctx := context.Background()
 
-	c, err := cloudevents.NewClientHTTP()
+	c, err := cloudevents.NewClientHTTP(cehttp.WithPort(8080))
 	if err != nil {
 		log.Fatal("Failed to create CloudEvents client: ", err)
 	}
